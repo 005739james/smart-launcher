@@ -15,24 +15,30 @@ const assert = Lib.assert;
  * @returns {Object|null} Returns the modified JSON object or null in case of error
  */
 function augmentConformance(json, baseUrl) {
-    json.rest[0].security.extension = [{
-        "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris",
-        "extension": [
-            {
-                "url": "authorize",
-                "valueUri": Lib.buildUrlPath(baseUrl, "/auth/authorize")
-            },
-            {
-                "url": "token",
-                "valueUri": Lib.buildUrlPath(baseUrl, "/auth/token")
-            },
-            {
-                "url": "introspect",
-                "valueUri": Lib.buildUrlPath(baseUrl, "/auth/introspect")
-            }
-        ]
-    }];
-
+    if (json.rest && json.rest.length > 0) {
+        if (!json.rest[0].security) {
+            json.rest[0].security = {};
+        }
+        json.rest[0].security.extension = [{
+            "url": "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris",
+            "extension": [
+                {
+                    "url": "authorize",
+                    "valueUri": Lib.buildUrlPath(baseUrl, "/auth/authorize")
+                },
+                {
+                    "url": "token",
+                    "valueUri": Lib.buildUrlPath(baseUrl, "/auth/token")
+                },
+                {
+                    "url": "introspect",
+                    "valueUri": Lib.buildUrlPath(baseUrl, "/auth/introspect")
+                }
+            ]
+        }];
+    } else {
+        throw new Error("Invalid conformance statement: 'rest' field is missing or empty");
+    }
     json.rest[0].security.service = [
         {
           "coding": [
@@ -144,11 +150,18 @@ module.exports = (req, res) => {
 
     validateToken(req);
     
+    // 確保 fhirServer 以 '/' 結尾
+    if (!fhirServer.endsWith('/')) {
+        fhirServer += '/';
+    }
+
+    // 確保 req.url 不以 '/' 開頭
+    let relativeUrl = req.url.startsWith('/') ? req.url.substring(1) : req.url;
 
     // Build the FHIR request options ------------------------------------------
     let fhirRequestOptions = {
         method: req.method,
-        url   : new URL(req.url, fhirServer).href,
+        url   : new URL(relativeUrl, fhirServer).href,
         throwHttpErrors: false,
         rejectUnauthorized: false
     };
